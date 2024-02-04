@@ -44,10 +44,14 @@ class DBStorage:
         result = {}
 
         if cls is not None:
-            objs = self.__session.query(classes[cls]).all()
-            for obj in objs:
-                key = "{}.{}".format(type(obj).__name__, obj.id)
-                result[key] = obj
+            if isinstance(cls, str):  # Check if cls is a string
+                cls = classes.get(cls)  # Use get to avoid KeyError
+
+            if cls is not None and issubclass(cls, BaseModel):
+                objs = self.__session.query(cls).all()
+                for obj in objs:
+                    key = "{}.{}".format(type(obj).__name__, obj.id)
+                    result[key] = obj
 
         return result
 
@@ -59,6 +63,7 @@ class DBStorage:
         self.__session.add(obj)
 
     def get(self, cls, id):
+        import models
         """retrieves an object of a class with id"""
         obj = None
         if cls is not None and issubclass(cls, BaseModel):
@@ -66,6 +71,7 @@ class DBStorage:
         return obj
 
     def count(self, cls=None):
+        import models
         """retrieves the number of objects of a class or all (if cls==None)"""
         return len(self.all(cls))
 
