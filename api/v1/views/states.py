@@ -1,86 +1,115 @@
 #!/usr/bin/python3
-'''Contains the states view for the API.'''
-from flask import jsonify, request
-from werkzeug.exceptions import NotFound, MethodNotAllowed, BadRequest
-
-from api.v1.views import app_views
+"""States API routes"""
 from models import storage
+from flask import jsonify, request, abort
+from api.v1.views import app_views
 from models.state import State
 
 
-ALLOWED_METHODS = ['GET', 'DELETE', 'POST', 'PUT']
-'''Methods allowed for the states endpoint.'''
+@app_views.route('/states/', methods=['GET'], strict_slashes=False)
+def show_states():
+    """Shows all states in storage
+           Returns:
+               A list of JSON dictionaries of all states in a
+               200 response body
+    """
+    states = list(storage.all('State').values())
+    states_list = []
+    for state in states:
+        states_list.append(state.to_dict())
+    return jsonify(states_list)
 
 
-@app_views.route('/states', methods=ALLOWED_METHODS)
-@app_views.route('/states/<state_id>', methods=ALLOWED_METHODS)
-def handle_states(state_id=None):
-    '''The method handler for the states endpoint.
-    '''
-    handlers = {
-        'GET': get_states,
-        'DELETE': remove_state,
-        'POST': add_state,
-        'PUT': update_state,
-    }
-    if request.method in handlers:
-        return handlers[request.method](state_id)
+@app_views.route('/states/<state_id>', methods=['GET'], strict_slashes=False)
+def show_state(state_id):
+    """Shows a specific state based on id from storage
+           Parameters:
+               state_id [str]: the id of the state to display
+
+           Returns:
+               A JSON dictionary of the state in a 200 response
+               A 404 response if the id does not match
+    """
+    state = storage.get('State', state_id)
+    if state:
+        return jsonify(state.to_dict())
     else:
-        raise MethodNotAllowed(list(handlers.keys()))
+        abort(404)
 
 
-def get_states(state_id=None):
-    '''Gets the state with the given id or all states.
-    '''
-    all_states = storage.all(State).values()
-    if state_id:
-        res = list(filter(lambda x: x.id == state_id, all_states))
-        if res:
-            return jsonify(res[0].to_dict())
-        raise NotFound()
-    all_states = list(map(lambda x: x.to_dict(), all_states))
-    return jsonify(all_states)
+@app_views.route(
+    '/states/<state_id>', methods=['DELETE'], strict_slashes=False)
+def delete_state(state_id):
+    """Deletes a specific state based on id from storage
+           Parameters:
+               state_id [str]: the id of the state to delete
 
-
-def remove_state(state_id=None):
-    '''Removes a state with the given id.
-    '''
-    all_states = storage.all(State).values()
-    res = list(filter(lambda x: x.id == state_id, all_states))
-    if res:
-        storage.delete(res[0])
+           Returns:
+               A JSON empty dictionary in a 200 response
+               A 404 response if the id does not match
+    """
+    state = storage.get('State', state_id)
+    if state:
+        storage.delete(state)
         storage.save()
-        return jsonify({}), 200
-    raise NotFound()
+        return jsonify({})
+    else:
+        abort(404)
 
 
-def add_state(state_id=None):
-    '''Adds a new state.
-    '''
-    data = request.get_json()
-    if type(data) is not dict:
-        raise BadRequest(description='Not a JSON')
-    if 'name' not in data:
-        raise BadRequest(description='Missing name')
-    new_state = State(**data)
-    new_state.save()
-    return jsonify(new_state.to_dict()), 201
+@app_views.route('/states/', methods=['POST'], strict_slashes=False)
+def create_state():
+    """Creates a state object
+           Returns:
+               A JSON dictionary of the new state in a 200 response
+               A 400 response if not a valid JSON or if missing parameters
+    """
+    content = request.get_json(silent=True)
+    error_message = ""
+    if type(content) is dict:
+        if "name" in content.keys():
+            state = State(**content)
+            storage.new(state)
+            storage.save()
+            response = jsonify(state.to_dict())
+            response.status_code = 201
+            return response
+        else:
+            error_message = "Missing name"
+    else:
+        error_message = "Not a JSON"
+
+    response = jsonify({'error': error_message})
+    response.status_code = 400
+    return response
 
 
-def update_state(state_id=None):
-    '''Updates the state with the given id.
-    '''
-    xkeys = ('id', 'created_at', 'updated_at')
-    all_states = storage.all(State).values()
-    res = list(filter(lambda x: x.id == state_id, all_states))
-    if res:
-        data = request.get_json()
-        if type(data) is not dict:
-            raise BadRequest(description='Not a JSON')
-        old_state = res[0]
-        for key, value in data.items():
-            if key not in xkeys:
-                setattr(old_state, key, value)
-        old_state.save()
-        return jsonify(old_state.to_dict()), 200
-    raise NotFound()
+@app_views.route('/states/<state_id>', methods=['PUT'], strict_slashes=False)
+def update_state(state_id):
+    """Updates an existing state object based on id
+           Parameters:
+               state_id [str]: the id of the state to update
+
+           Returns:
+               A JSON dictionary of the udpated state in a 200 response
+               A 400 response if not a valid JSON
+               A 404 response if the id does not match
+    """
+    state = storage.get('State', state_id)
+    error_message = ""
+    if state:
+        content = request.get_json(silent=True)
+        if type(content) is dict:
+            ignore = ['id', 'created_at', 'updated_at']
+            for name, value in content.items():
+                if name not in ignore:
+                    setattr(state, name, value)
+            storage.save()
+            return jsonify(state.to_dict())
+        else:
+            error_message = "Not a JSON"
+            response = jsonify({'error': error_message})
+            response.status_code = 400
+            return response
+
+    abort(404)

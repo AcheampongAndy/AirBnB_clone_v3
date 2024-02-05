@@ -1,106 +1,86 @@
 #!/usr/bin/python3
-'''Contains the places_amenities view for the API.'''
-from flask import jsonify, request
-from werkzeug.exceptions import NotFound, MethodNotAllowed
-
+"""Place-Amenity API Routes"""
+from models import storage
+from flask import jsonify, request, abort
 from api.v1.views import app_views
-from models import storage, storage_t
-from models.amenity import Amenity
+from models.review import Review
 from models.place import Place
+from models.user import User
+from models.amenity import Amenity
 
 
-@app_views.route('/places/<place_id>/amenities', methods=['GET'])
+@app_views.route(
+    '/places/<place_id>/amenities/', methods=['GET'], strict_slashes=False)
+def show_amenities_by_place(place_id):
+    """Show all list of amenities associated with a place
+       Args:
+           place_id (str): the id of the place to display amenities
+       Returns:
+           A list of JSON dictionaries of all amenities in a 200 response
+    """
+    amenities_list = []
+    place = storage.get("Place", place_id)
+    if place:
+        for amenity in place.amenities:
+            amenities_list.append(amenity.to_dict())
+        return jsonify(amenities_list)
+    else:
+        abort(404)
+
+
 @app_views.route(
     '/places/<place_id>/amenities/<amenity_id>',
-    methods=['DELETE', 'POST']
-)
-def handle_places_amenities(place_id=None, amenity_id=None):
-    '''The method handler for the places endpoint.
-    '''
-    handlers = {
-        'GET': get_place_amenities,
-        'DELETE': remove_place_amenity,
-        'POST': add_place_amenity
-    }
-    if request.method in handlers:
-        return handlers[request.method](place_id, amenity_id)
+    methods=['DELETE'], strict_slashes=False)
+def delete_place_amenity(place_id, amenity_id):
+    """Delete an amenity based on id from storage
+       Args:
+           place_id (str): the id of the place
+           amenity_id (str): id of amenity to delete
+       Returns:
+           An empty JSON dictionary in a 200 response
+           A 404 response if the id does not match
+    """
+    place = storage.get('Place', place_id)
+    if place:
+        amenity = storage.get('Amenity', amenity_id)
+        if amenity:
+            if amenity in place.amenities:
+                place.amenities.remove(amenity)
+                storage.save()
+                return jsonify({})
+            else:
+                abort(404)
+        else:
+            abort(404)
     else:
-        raise MethodNotAllowed(list(handlers.keys()))
+        abort(404)
 
 
-def get_place_amenities(place_id=None, amenity_id=None):
-    '''Gets the amenities of a place with the given id.
-    '''
-    if place_id:
-        place = storage.get(Place, place_id)
-        if place:
-            all_amenities = list(map(lambda x: x.to_dict(), place.amenities))
-            return jsonify(all_amenities)
-    raise NotFound()
-
-
-def remove_place_amenity(place_id=None, amenity_id=None):
-    '''Removes an amenity with a given id from a place with a given id.
-    '''
-    if place_id and amenity_id:
-        place = storage.get(Place, place_id)
-        if not place:
-            raise NotFound()
-        amenity = storage.get(Amenity, amenity_id)
-        if not amenity:
-            raise NotFound()
-        place_amenity_link = list(
-            filter(lambda x: x.id == amenity_id, place.amenities)
-        )
-        if not place_amenity_link:
-            raise NotFound()
-        if storage_t == 'db':
-            amenity_place_link = list(
-                filter(lambda x: x.id == place_id, amenity.place_amenities)
-            )
-            if not amenity_place_link:
-                raise NotFound()
-            place.amenities.remove(amenity)
-            place.save()
-            return jsonify({}), 200
+@app_views.route(
+    '/places/<place_id>/amenities/<amenity_id>',
+    methods=['POST'], strict_slashes=False)
+def create_place_amenity(place_id, amenity_id):
+    """Creates a new association between place and amenity
+       Args:
+           place_id (str): the id of the place
+           amenity_id (str): id of the amenity
+       Returns:
+           A JSON dictionary of the amenity in a 201 response
+           A 404 response if not match for ids
+    """
+    place = storage.get('Place', place_id)
+    if place:
+        amenity = storage.get('Amenity', amenity_id)
+        if amenity:
+            if amenity in place.amenities:
+                return jsonify(amenity.to_dict())
+            else:
+                place.amenities.append(amenity)
+                storage.save()
+                response = jsonify(amenity.to_dict())
+                response.status_code = 201
+                return response
         else:
-            amenity_idx = place.amenity_ids.index(amenity_id)
-            place.amenity_ids.pop(amenity_idx)
-            place.save()
-            return jsonify({}), 200
-    raise NotFound()
-
-
-def add_place_amenity(place_id=None, amenity_id=None):
-    '''Adds an amenity with a given id to a place with a given id.
-    '''
-    if place_id and amenity_id:
-        place = storage.get(Place, place_id)
-        if not place:
-            raise NotFound()
-        amenity = storage.get(Amenity, amenity_id)
-        if not amenity:
-            raise NotFound()
-        if storage_t == 'db':
-            place_amenity_link = list(
-                filter(lambda x: x.id == amenity_id, place.amenities)
-            )
-            amenity_place_link = list(
-                filter(lambda x: x.id == place_id, amenity.place_amenities)
-            )
-            if amenity_place_link and place_amenity_link:
-                res = amenity.to_dict()
-                del res['place_amenities']
-                return jsonify(res), 200
-            place.amenities.append(amenity)
-            place.save()
-            res = amenity.to_dict()
-            del res['place_amenities']
-            return jsonify(res), 201
-        else:
-            if amenity_id in place.amenity_ids:
-                return jsonify(amenity.to_dict()), 200
-            place.amenity_ids.push(amenity_id)
-            place.save()
-            return jsonify(amenity.to_dict()), 201
-    raise NotFound()
+            abort(404)
+    else:
+        abort(404)
