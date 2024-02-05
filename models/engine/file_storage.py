@@ -25,7 +25,13 @@ class FileStorage:
 
     def get(self, cls, id):
         """retrieves an object of a class with id"""
-        if cls is not None:
+        if cls in classes.values() and id and type(id) is str:
+            d_obj = self.all(cls)
+            for key, value in d_obj.items():
+                if key.split(".")[1] == id:
+                    return value
+        return None
+        '''if cls is not None:
             res = list(
                 filter(
                     lambda x: type(x) is cls and x.id == id,
@@ -34,7 +40,7 @@ class FileStorage:
             )
             if res:
                 return res[0]
-        return None
+        return None'''
 
     def count(self, cls=None):
         """retrieves the number of objects of a class or all (if cls==None)"""

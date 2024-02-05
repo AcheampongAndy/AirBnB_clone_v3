@@ -65,10 +65,16 @@ class DBStorage:
     def get(self, cls, id):
         import models
         """retrieves an object of a class with id"""
-        obj = None
+        if cls in classes.values() and id and type(id) is str:
+            d_obj = self.all(cls)
+            for key, value in d_obj.items():
+                if key.split(".")[1] == id:
+                    return value
+        return None
+        '''obj = None
         if cls is not None and issubclass(cls, BaseModel):
             obj = self.__session.query(cls).filter(cls.id == id).first()
-        return obj
+        return obj'''
 
     def count(self, cls=None):
         import models
