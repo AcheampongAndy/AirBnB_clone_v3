@@ -17,10 +17,12 @@ app.url_map.strict_slashes = False
 app.register_blueprint(app_views)
 CORS(app, resources={'/*': {'origins': app_host}})
 
+
 @app.teardown_appcontext
 def teardown_flask(exception):
     '''The Flask app/request context end event listener.'''
     storage.close()
+
 
 @app.errorhandler(404)
 def error_404(error):
