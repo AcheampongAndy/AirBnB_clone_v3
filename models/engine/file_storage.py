@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 
+from models.engine.db_storage import classes
 import json
 import models
 from os.path import isfile
