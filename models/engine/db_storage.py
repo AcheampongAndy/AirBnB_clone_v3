@@ -75,13 +75,14 @@ class DBStorage:
 
     def get(self, cls, id):
         """retrieves an object of a class with id"""
-        if cls in classes.values() and id:
-            obj = self.__session.query(cls).filter_by(id=id).first()
-            return obj
+        if cls in classes.values() and id and type(id) is str:
+            d_obj = self.all(cls)
+            for key, value in d_obj.items():
+                if key.split(".")[1] == id:
+                    return value
         return None
 
     def count(self, cls=None):
-        from sqlalchemy import func
         """retrieves the number of objects of a class or all (if cls==None)"""
         if cls is not None and cls in classes.values():
             return len(self.all(cls))
