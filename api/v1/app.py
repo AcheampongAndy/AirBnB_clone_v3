@@ -1,50 +1,45 @@
 #!/usr/bin/python3
-'''Contains a Flask web application API.
-'''
-import os
-from flask import Flask, jsonify
-from flask_cors import CORS
-
+"""Register blueprint"""
+from os import getenv
+from flask import Flask, Blueprint, jsonify
 from models import storage
 from api.v1.views import app_views
+from flask_cors import CORS
 
 
 app = Flask(__name__)
-'''The Flask web application instance.'''
-app_host = os.getenv('HBNB_API_HOST', '0.0.0.0')
-app_port = int(os.getenv('HBNB_API_PORT', '5000'))
-app.url_map.strict_slashes = False
+cors = CORS(app, resources={r"/*": {"origins": "0.0.0.0"}})
+
+
+app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 app.register_blueprint(app_views)
-CORS(app, resources={'/*': {'origins': app_host}})
 
 
 @app.teardown_appcontext
-def teardown_flask(exception):
-    '''The Flask app/request context end event listener.'''
-    # print(exception)
+def tear_down(error):
+    """Remove the current SQLAlchemy Session
+           Parameters:
+               error [str]: an error message or exception
+    """
     storage.close()
 
 
 @app.errorhandler(404)
-def error_404(error):
-    '''Handles the 404 HTTP error code.'''
-    return jsonify(error='Not found'), 404
-
-
-@app.errorhandler(400)
-def error_400(error):
-    '''Handles the 400 HTTP error code.'''
-    msg = 'Bad request'
-    if isinstance(error, Exception) and hasattr(error, 'description'):
-        msg = error.description
-    return jsonify(error=msg), 400
+def not_found(message):
+    """Handles the 404 status code
+           Parameters:
+               message [str]: a custom message to display
+           Returns:
+               The HTTP response for the request
+    """
+    response = jsonify({'error': 'Not found'})
+    response.status_code = 404
+    return response
 
 
 if __name__ == '__main__':
-    app_host = os.getenv('HBNB_API_HOST', '0.0.0.0')
-    app_port = int(os.getenv('HBNB_API_PORT', '5000'))
     app.run(
-        host=app_host,
-        port=app_port,
+        host=getenv('HBNB_API_HOST', default='0.0.0.0'),
+        port=int(getenv('HBNB_API_PORT', default=5000)),
         threaded=True
     )
