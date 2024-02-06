@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """States API routes"""
-from models import storage
+from models import storage, storage_t
 from flask import jsonify, request, abort
 from api.v1.views import app_views
 from models.state import State

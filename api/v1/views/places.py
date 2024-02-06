@@ -4,7 +4,7 @@ from flask import jsonify, request
 from werkzeug.exceptions import NotFound, MethodNotAllowed, BadRequest
 
 from api.v1.views import app_views
-from models import storage
+from models import storage, storage_t
 from models.amenity import Amenity
 from models.city import City
 from models.place import Place
