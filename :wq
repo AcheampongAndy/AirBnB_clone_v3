@@ -21,7 +21,16 @@ class FileStorage:
                 if isinstance(value, cls) or value.__class__.__name__ == cls:
                     new_dict[key] = value
             return new_dict
-        return self.__objects
+        else:
+            for key, value in models.classes.item():
+                if key != "BaseModel":
+                    objs = self.__session.query(value).all()
+                    if len(objs) > 0:
+                        for obj in objs:
+                            key = "{}.{}".format(obj.__class__.__name__,
+                                                 obj.id)
+                            new_dict[key] = obj
+            return new_dict
 
     def get(self, cls, id):
         """retrieves an object of a class with id"""

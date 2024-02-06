@@ -41,7 +41,7 @@ class DBStorage:
         Query all objects from the current database session.
         """
         from models import storage
-        result = {}
+        new_dict = {}
 
         if cls is not None:
             if isinstance(cls, str):  # Check if cls is a string
@@ -51,9 +51,20 @@ class DBStorage:
                 objs = self.__session.query(cls).all()
                 for obj in objs:
                     key = "{}.{}".format(type(obj).__name__, obj.id)
-                    result[key] = obj
+                    new_dict[key] = obj
 
-        return result
+            return new_dict
+        else:
+            for key, value in classes.items():
+                if key != "BaseModel":
+                    objs = self.__session.query(value).all()
+                    if len(objs) > 0:
+                        for obj in objs:
+                            key = "{}.{}".format(obj.__class__.__name__,
+                                                 obj.id)
+                            new_dict[key] = obj
+            return new_dict
+
 
 
     def new(self, obj):
@@ -63,23 +74,19 @@ class DBStorage:
         self.__session.add(obj)
 
     def get(self, cls, id):
-        import models
         """retrieves an object of a class with id"""
-        if cls in classes.values() and id and type(id) is str:
-            d_obj = self.all(cls)
-            for key, value in d_obj.items():
-                if key.split(".")[1] == id:
-                    return value
+        if cls in classes.values() and id:
+            obj = self.__session.query(cls).filter_by(id=id).first()
+            return obj
         return None
-        '''obj = None
-        if cls is not None and issubclass(cls, BaseModel):
-            obj = self.__session.query(cls).filter(cls.id == id).first()
-        return obj'''
 
     def count(self, cls=None):
-        import models
+        from sqlalchemy import func
         """retrieves the number of objects of a class or all (if cls==None)"""
-        return len(self.all(cls))
+        if cls is not None and cls in classes.values():
+            return len(self.all(cls))
+        else:
+            return len(self.all())
 
     def save(self):
         """
